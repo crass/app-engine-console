@@ -37,3 +37,6 @@ python_doc = 'http://docs.python.org'
 # main app will use the same version. If None, no version forcing will be done,
 # otherwise, currently supported version are (0, 96), (1, 0), and (1, 1).
 django_version = (1, 1)
+
+# Allow debug logging of console. Used for development of console.
+debug = False

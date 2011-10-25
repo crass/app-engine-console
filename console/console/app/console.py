@@ -47,7 +47,7 @@ if debug:
     logging.getLogger().setLevel(logging.DEBUG)
 
 def main():
-    logging.warn("Starting to run the WSGI app")
+    logging.info("Starting to run the WSGI app")
     run_wsgi_app(application)
 
 if __name__ == "__main__":

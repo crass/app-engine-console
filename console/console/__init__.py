@@ -2,23 +2,117 @@
 
 import sys
 import os
+import logging
+
+from . import config
+debug = config.debug
+
+if debug:
+    logging.getLogger().setLevel(logging.DEBUG)
+
 
 BASEDIR = os.path.dirname(__file__)
 APPDIRNAME = 'app'
 APPDIRPATH = os.path.join(BASEDIR, APPDIRNAME)
 APPZIPPATH = APPDIRPATH.rstrip('/')+'.zip'
 
-# Force the correct Django version to avoid the dreaded UnacceptableVersionError.
-import config
-if config.django_version:
-  django_major, django_minor = config.django_version
-  django_version = '%s.%s' % (django_major, django_minor)
+# The 2.7.x runtime is significantly different from the 2.5 one.
+if sys.version_info[:2] < (2, 6):
+    
+    # Force the correct Django version to avoid the dreaded
+    # UnacceptableVersionError.
+    import config
+    if config.django_version:
+        django_major, django_minor = config.django_version
+        django_version = '%s.%s' % (django_major, django_minor)
 
-  from google.appengine.dist import use_library
-  use_library('django', django_version)
-  import django
-  assert int(django.VERSION[0]) == django_major
-  assert int(django.VERSION[1]) == django_minor
+        from google.appengine.dist import use_library
+        use_library('django', django_version)
+        import django
+        assert int(django.VERSION[0]) == django_major
+        assert int(django.VERSION[1]) == django_minor
+    
+    # Add this module to sys.modules as the dirname, so that it doesn't
+    # imported twice via a different module name.
+    console_module_name = os.path.basename(BASEDIR)
+    import __main__
+    sys.modules[console_module_name] = __main__
+    
+elif sys.version_info[:2] < (2, 8):
+    # Since we were developed on the 2.5 runtime, make the 2.7 runtime
+    # look like the 2.5 one.
+    
+    # Configure the django template system in standalone mode.
+    from django.conf import settings
+    
+    settings.configure(DEBUG=True, TEMPLATE_DEBUG=True,
+        TEMPLATE_LOADERS=(
+          'django.template.loaders.filesystem.Loader',
+        )
+    )
+    
+    # Create a template module that acts like the old
+    # google.appengine.ext.webapp.template.  Most of this is taken from
+    # the old module.
+    from types import ModuleType
+    from django.template import Context
+    import django.template.loader
+    
+    def _swap_settings(new):
+        old = {}
+        for key, value in new.iteritems():
+            old[key] = getattr(settings, key, None)
+            setattr(settings, key, value)
+        return old
+    
+    template_cache = {}
+    def render(template_path, template_dict, debug=False):
+        abspath = os.path.abspath(template_path)
+
+        template = None
+        if not debug:
+            template = template_cache.get(abspath, None)
+        
+        if not template:
+            directory, file_name = os.path.split(abspath)
+            new_settings = {
+                'TEMPLATE_DIRS': (directory,),
+                'TEMPLATE_DEBUG': debug,
+                'DEBUG': debug,
+            }
+            old_settings = _swap_settings(new_settings)
+            try:
+                template = django.template.loader.get_template(file_name)
+
+                return template.render(Context(template_dict))
+            finally:
+                _swap_settings(old_settings)
+        
+                if not debug:
+                    template_cache[abspath] = template
+    
+    template_module_name = 'google.appengine.ext.webapp.template'
+    template = ModuleType(name=template_module_name)
+    template.render = render
+    
+    # 2.7 has webapp point to webapp2, which has not template module.
+    # So adding one shouldn't cause problems for other apps, developed for
+    # webapp2.
+    from google.appengine.ext import webapp
+    sys.modules[template.__name__] = template
+    webapp.template = template
+    
+    # Add this module to sys.modules as the dirname, so that it doesn't
+    # imported twice via a different module name.
+    console_module_name = os.path.basename(BASEDIR)
+    import __main__
+    sys.modules[console_module_name] = __main__
+    sys.modules['console'] = __main__
+    
+    for attr in ('config', 'BASEDIR', 'APPDIRNAME', 'APPDIRPATH',
+                 'APPZIPPATH'):
+        setattr(__main__, attr, globals()[attr])
+    
 
 
 def initialize():
@@ -26,12 +120,6 @@ def initialize():
     # All added paths should be at the end so that in case of name
     # collisions the "real" app takes precendence.  Its okay to break
     # this console app, but breaking the users app would not be good.
-    
-    # Add this module to sys.modules as the dirname, so that it doesn't
-    # imported twice via a different module name.
-    console_module_name = os.path.basename(BASEDIR)
-    import __main__
-    sys.modules[console_module_name] = __main__
     
     sys.path.append(BASEDIR)
     if os.path.isfile(APPZIPPATH):
