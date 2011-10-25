@@ -10,6 +10,12 @@ debug = config.debug
 if debug:
     logging.getLogger().setLevel(logging.DEBUG)
 
+def get_this_module():
+    this = sys.modules.get(__name__, None)
+    if not this:
+        this = __import__(__name__)
+    return this
+
 
 BASEDIR = os.path.dirname(__file__)
 APPDIRNAME = 'app'
@@ -21,7 +27,6 @@ if sys.version_info[:2] < (2, 6):
     
     # Force the correct Django version to avoid the dreaded
     # UnacceptableVersionError.
-    import config
     if config.django_version:
         django_major, django_minor = config.django_version
         django_version = '%s.%s' % (django_major, django_minor)
@@ -35,8 +40,9 @@ if sys.version_info[:2] < (2, 6):
     # Add this module to sys.modules as the dirname, so that it doesn't
     # imported twice via a different module name.
     console_module_name = os.path.basename(BASEDIR)
-    import __main__
-    sys.modules[console_module_name] = __main__
+    this_module = get_this_module()
+    sys.modules[console_module_name] = this_module
+    sys.modules['console'] = this_module
     
 elif sys.version_info[:2] < (2, 8):
     # Since we were developed on the 2.5 runtime, make the 2.7 runtime
@@ -94,6 +100,7 @@ elif sys.version_info[:2] < (2, 8):
     template_module_name = 'google.appengine.ext.webapp.template'
     template = ModuleType(name=template_module_name)
     template.render = render
+    template.template_cache = template_cache
     
     # 2.7 has webapp point to webapp2, which has not template module.
     # So adding one shouldn't cause problems for other apps, developed for
@@ -105,14 +112,14 @@ elif sys.version_info[:2] < (2, 8):
     # Add this module to sys.modules as the dirname, so that it doesn't
     # imported twice via a different module name.
     console_module_name = os.path.basename(BASEDIR)
-    import __main__
-    sys.modules[console_module_name] = __main__
-    sys.modules['console'] = __main__
+    this_module = get_this_module()
+    sys.modules[console_module_name] = this_module
+    sys.modules['console'] = this_module
     
+    # Why is this necessary?
     for attr in ('config', 'BASEDIR', 'APPDIRNAME', 'APPDIRPATH',
                  'APPZIPPATH'):
-        setattr(__main__, attr, globals()[attr])
-    
+        setattr(this_module, attr, globals()[attr])
 
 
 def initialize():
