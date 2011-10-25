@@ -19,4 +19,6 @@
 
 """App Engine Console controller package"""
 
+# Unfortunately 2.5.x does not support import * from a relative import.
+# This is ok because relative imports are default in 2.5.x
 from console import *

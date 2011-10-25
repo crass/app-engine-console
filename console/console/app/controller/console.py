@@ -17,6 +17,8 @@
 # along with App Engine Console; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
+from __future__ import absolute_import
+
 import os
 import re
 import sys
@@ -33,7 +35,7 @@ import pygments.formatters
 
 import util
 import model
-import config
+from console import config
 
 from google.appengine.api        import users
 from google.appengine.api        import memcache
@@ -45,8 +47,8 @@ from django.utils                import simplejson
 # Unpicklable statements to seed new sessions with.
 INITIAL_UNPICKLABLES = [
     '\n'.join(['import sys',
-               'sys.path.insert(0, "%s")' % os.path.dirname(os.path.dirname(os.path.dirname((__file__)))),
-               'try: from autoexec import *',
+               #~ 'sys.path.insert(0, "%s")' % os.path.dirname(os.path.dirname(os.path.dirname((__file__)))),
+               'try: from console.autoexec import *',
                'except ImportError: pass',
                'finally: del sys'])
 ]

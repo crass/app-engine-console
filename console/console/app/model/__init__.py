@@ -19,4 +19,4 @@
 
 """App Engine Console models package"""
 
-from console import AppEngineConsole
+from .console import AppEngineConsole

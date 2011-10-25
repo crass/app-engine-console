@@ -21,45 +21,33 @@ import os
 import re
 import sys
 
-from os.path import join, dirname
-sys.path.insert(0, dirname(__file__))
-sys.path.insert(0, dirname(dirname(__file__)))
-
-# Force the correct Django version to avoid the dreaded UnacceptableVersionError.
-import config
-if config.django_version:
-  django_major, django_minor = config.django_version
-  django_version = '%s.%s' % (django_major, django_minor)
-
-  from google.appengine.dist import use_library
-  use_library('django', django_version)
-  import django
-  assert int(django.VERSION[0]) == django_major
-  assert int(django.VERSION[1]) == django_minor
-
 import cgi
 import code
 import logging
 
 import util
 import controller
+import static
 
 from google.appengine.ext import webapp
 from google.appengine.ext.webapp.util import run_wsgi_app
 
 debug = util.is_dev()
 application = webapp.WSGIApplication([
-    ('/'                  , controller.Root),
-    ('/console/dashboard/', controller.Dashboard),
-    ('/console/help.*'    , controller.Help),
-    ('/console/statement' , controller.Statement),
-    ('/console/banner'    , controller.Banner),
-    ('/console.*'         , controller.Console),
+    ('/'                    , controller.Root),
+    ('/console/dashboard/'  , controller.Dashboard),
+    ('/console/help.*'      , controller.Help),
+    ('/console/statement'   , controller.Statement),
+    ('/console/banner'      , controller.Banner),
+    ('/console/static/(.*)' , static.ConsoleStaticZipHandler),
+    ('/console.*'           , controller.Console),
 ], debug=debug)
 
+if debug:
+    logging.getLogger().setLevel(logging.DEBUG)
+
 def main():
-    if debug:
-        logging.getLogger().setLevel(logging.DEBUG)
+    logging.warn("Starting to run the WSGI app")
     run_wsgi_app(application)
 
 if __name__ == "__main__":
