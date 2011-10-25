@@ -18,16 +18,18 @@ config = {
     ]
 }
 
-def createInclude(filename):
+def createInclude(filename, console_path='tools/console'):
     f = open(filename, 'w')
     src = """### Console for debugging and introspection
 handlers:
-#~ - url: /console/static
-  #~ static_dir: tools/console/app/view/static
+# Uncomment the following handler if not serving static file from zipfile.
+#- url: /console/static
+  #static_dir: %(console_path)s/app/view/static
+  #expiration: 30m  # Changes more often
   
 - url: /console(/.*)?
-  script: tools/console
-"""
+  script: %(console_path)s
+"""%dict(console_path=console_path)
     f.write(src)
 
 def createZipFileFromDir(dir, zippath=None, relativeto=None):
@@ -72,9 +74,18 @@ def build(config):
         shutil.copy2(os.path.join(srcdir, includepath),
                      os.path.join(bdir, includepath))
     
+    # Find project root by finding a parent directory with app.yaml
+    project_root = abs_bdir = os.path.abspath(bdir)
+    while not os.path.isfile(os.path.join(project_root, "app.yaml")):
+        project_root = os.path.dirname(project_root)
+    
+    # get relative path from project root to build dir
+    bdir_relpath = abs_bdir[len(project_root)+1:]
+    
     # create include yaml
     includeyaml = 'include.yaml'
-    createInclude(filename=os.path.join(bdir, includeyaml))
+    createInclude(filename=os.path.join(bdir, includeyaml),
+                  console_path=bdir_relpath)
     
     createZipFileFromDir(os.path.join(srcdir, config['zipdir']),
         os.path.join(bdir, config['zipdir']+'.zip'), relativeto=srcdir)
@@ -87,9 +98,6 @@ def main(argv):
         if opt == '-h':
             print "%s [-d <builddir>]"%os.path.basename(sys.argv[0])
             sys.exit(0)
-    
-    #~ APP_ROOT="console"
-    #~ os.chdir(APP_ROOT)
     
     build(config)
 
