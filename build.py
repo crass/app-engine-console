@@ -28,8 +28,23 @@ handlers:
   #expiration: 30m  # Changes more often
   
 - url: /console(/.*)?
-  script: %(console_path)s
-"""%dict(console_path=console_path)
+  script: %(console_path_imp)s.application
+"""%dict(console_path=console_path,
+         console_path_imp=console_path.replace('/', '.'))
+    f.write(src)
+
+def createApplicationHack(filename):
+    f = open(filename, 'w')
+    src = """from __future__ import absolute_import
+from . import application
+from google.appengine.ext.webapp.util import run_wsgi_app
+
+def main():
+    run_wsgi_app(application)
+
+if __name__ == '__main__':
+    main()
+"""
     f.write(src)
 
 def createZipFileFromDir(dir, zippath=None, relativeto=None):
@@ -86,6 +101,7 @@ def build(config):
     includeyaml = 'include.yaml'
     createInclude(filename=os.path.join(bdir, includeyaml),
                   console_path=bdir_relpath)
+    createApplicationHack(filename=os.path.join(bdir, 'application.py'))
     
     createZipFileFromDir(os.path.join(srcdir, config['zipdir']),
         os.path.join(bdir, config['zipdir']+'.zip'), relativeto=srcdir)
